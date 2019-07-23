@@ -1,4 +1,4 @@
-# lldb "breakpoint write" ModuleName fix
+# lldb "breakpoint write" fix
 
 The lldb's "breakpoint write" command has some bugs:
 
