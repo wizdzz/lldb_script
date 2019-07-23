@@ -9,3 +9,6 @@ The lldb's "breakpoint write" command has some bugs:
     
     ->  i calculate and filled the "AddressOffset" field with the offset from file;
 
+
+![Alt text](https://github.com/wizdzz/lldb_script/blob/master/breakpoint_write/2.png)
+![Alt text](https://github.com/wizdzz/lldb_script/blob/master/breakpoint_write/1.png)
