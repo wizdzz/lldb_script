@@ -2,7 +2,7 @@
 
 '''
 Author: 
-    upbit
+    upbit, wizdzz
 Date:
     2014-12-02
 Purpose:
