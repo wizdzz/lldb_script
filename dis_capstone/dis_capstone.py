@@ -3,6 +3,8 @@
 '''
 Author: 
     upbit
+Patched by:
+    wizdzz
 Date:
     2014-12-02
 Purpose:
