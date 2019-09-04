@@ -2,7 +2,7 @@
 
 '''
 Author: 
-    upbit, wizdzz
+    upbit
 Date:
     2014-12-02
 Purpose:
@@ -16,8 +16,11 @@ import lldb
 import shlex
 import optparse
 import ctypes
+import traceback
 from capstone import *
 from capstone.arm import *
+
+import zhc_crypto
 
 bytes_to_hex = lambda bytes: " ".join([ "%.2X"%int(bytes[i]) for i in range(len(bytes)) ])
 
@@ -29,11 +32,12 @@ def _is_cpsr_thumb(frame):
     """ Check Thumb flag from CPSR """
     try:
         regs = frame.GetRegisters()[0]    # general purpose registers
-        cpsr = [reg for reg in regs if reg.GetName()=='cpsr'][0]
+        cpsr = [reg for reg in regs if reg.GetName() == 'cpsr'][0]
         thumb_bit = int(cpsr.GetValue(), 16) & 0x20
         return thumb_bit >> 5
-    except:
-        return 0
+    except BaseException as e:
+        s = traceback.format_exc()
+        print(s)
 
 def create_command_arguments(command):
     return shlex.split(command)
@@ -118,7 +122,12 @@ def image_lookup_addr(addr):
     lldb.debugger.GetCommandInterpreter().HandleCommand("image lookup --address 0x%x" % addr, res)
     return res.GetOutput()
 
-def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target):
+def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full):
+    process = target.GetProcess()
+    thread = process.GetSelectedThread()
+    frame = thread.GetSelectedFrame()
+    pc_addr = frame.GetPCAddress().GetLoadAddress(target)
+
     linesList = []
     lineCount = 0
 
@@ -126,8 +135,11 @@ def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target):
     md.detail = True
     disasm = md.disasm(bytes, start_addr)
     for insn in disasm:
-        line = "   0x%x:  %-16s %-8s %-16s" % (
-            insn.address, bytes_to_hex(insn.bytes), insn.mnemonic, insn.op_str)
+        line = "    0x%x:  %-12s %-8s %-24s" % (
+            insn.address, bytes_to_hex(insn.bytes), insn.mnemonic, insn.op_str) if full else (
+                "    0x%x:  %-8s %-24s" % (insn.address, insn.mnemonic, insn.op_str))
+        if int(pc_addr) == int(insn.address):
+            line = "->" + line[2:]
 
         for op in insn.operands:
             if op.type == CS_OP_IMM:  # or op.type == capstone.CS_OP_MEM:
@@ -153,11 +165,10 @@ def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target):
 
     return lineCount, linesList
 
-def get_disassemble(debugger, start_addr, disasm_arch, disasm_mode):
+def get_disassemble(debugger, start_addr, disasm_arch, disasm_mode, full):
     target = debugger.GetSelectedTarget()
     process = target.GetProcess()
     thread = process.GetSelectedThread()
-    frame = thread.GetSelectedFrame()
     linesList = []
     lineCount = 0
 
@@ -168,29 +179,26 @@ def get_disassemble(debugger, start_addr, disasm_arch, disasm_mode):
 
     if error.Success():
         # decode with capstone
-        lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target)
+        lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
 
         # maybe disasm_mode error, change to thumb or arm, maybe occur when cpsr flag is different with disassembly position
-        if lineCount == 0 and disasm_arch != CS_ARCH_ARM64:
-            disasm_mode = CS_MODE_ARM if (disasm_mode == CS_MODE_THUMB) else CS_MODE_THUMB
-            lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target)
+        # if lineCount == 0 and disasm_arch != CS_ARCH_ARM64:
+        #     disasm_mode = CS_MODE_ARM if (disasm_mode == CS_MODE_THUMB) else CS_MODE_THUMB
+        #     lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
 
     else:
         print("[ERROR] ReadMemory(0x%x): %s" % (start_addr, error))
 
     return lineCount, linesList
 
-def real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode):
+def real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode, full):
     """ Disassemble code with target arch/mode """
 
     totalLineCount = 0
     totalLinesList = []
 
-    # line
-    disasm_count = int(disasm_count) if (disasm_count is not None) else 4
-
     while totalLineCount < disasm_count:
-        curLineCount, curLines = get_disassemble(debugger, start_addr, disasm_arch, disasm_mode)
+        curLineCount, curLines = get_disassemble(debugger, start_addr, disasm_arch, disasm_mode, full)
         start_addr += 32
 
         if curLineCount == 0:
@@ -198,9 +206,6 @@ def real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mod
         else:
             totalLineCount += curLineCount
             totalLinesList.extend(curLines)
-
-    if len(totalLinesList) > 0:
-        totalLinesList[0] = "->" + totalLinesList[0][2:]
 
     for line in totalLinesList[0:disasm_count]:
         print(line)
@@ -221,14 +226,18 @@ def dis_capstone(debugger, command, result, dict):
     process = target.GetProcess()
     thread = process.GetSelectedThread()
     frame = thread.GetSelectedFrame()
+    pc_addr = frame.GetPCAddress().GetLoadAddress(target)
 
     # start_addr
     try:
         start_addr = int(options.start_addr, 0)
     except:
-        start_addr = frame.GetPCAddress().GetLoadAddress(target)
+        start_addr = pc_addr
     # length
-    disasm_count = options.count
+    disasm_count = options.count.lower() if (options.count is not None) else str(4)
+
+    disasm_count = int(zhc_crypto.BASECONVERTER.convert_by_base(disasm_count[2:], 16, 10)) \
+        if disasm_count.startswith('0x') else int(disasm_count)
 
     # arch
     disasm_arch = CS_ARCH_ARM
@@ -258,5 +267,5 @@ def dis_capstone(debugger, command, result, dict):
         print(image_lookup_addr(start_addr))
 
     ##
-    real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode)
+    real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode, options.full)
 
