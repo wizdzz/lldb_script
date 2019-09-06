@@ -22,8 +22,6 @@ import traceback
 from capstone import *
 from capstone.arm import *
 
-import zhc_crypto
-
 bytes_to_hex = lambda bytes: " ".join([ "%.2X"%int(bytes[i]) for i in range(len(bytes)) ])
 
 def __lldb_init_module (debugger, dict):
@@ -53,6 +51,54 @@ def create_options_parser():
     parser.add_option('-f', '--full', action="store_true", dest="full", help='show full outputs', default=False)
     parser.add_option('-c', '--count', dest='count', help='Number of instructions to display.', default=None)
     return parser
+
+def convert(number, fromdigits, todigits):
+    try:
+        # Based on http://code.activestate.com/recipes/111286/
+        if str(number)[0] == '-':
+            number = str(number)[1:]
+            neg = 1
+        else:
+            neg = 0
+
+        # make an integer out of the number
+        x = 0
+        for digit in str(number):
+            x = x * len(fromdigits) + fromdigits.index(digit)
+
+        # create the result in base 'len(todigits)'
+        if x == 0:
+            res = todigits[0]
+        else:
+            res = ""
+            while x > 0:
+                digit = x % len(todigits)
+                res = todigits[digit] + res
+                x = int(x / len(todigits))
+            if neg:
+                res = '-' + res
+        return res
+    except:
+        s = traceback.format_exc()
+        logging.error(s)
+        return None
+
+def base_to_digits(base):
+    fromdigits = BASECONVERTER.decimal_digits
+    if base <= 10:
+        fromdigits = fromdigits[0:base]
+    else:
+        fromdigits = fromdigits + BASECONVERTER.alpha_table[:base - 10]
+
+    return fromdigits
+
+def convert_by_base(number, from_base, to_base):
+    number = str(number).upper()
+
+    fromdigits = base_to_digits(from_base)
+    todigits = base_to_digits(to_base)
+
+    return convert(number, fromdigits, todigits)
 
 # from http://www.opensource.apple.com/source/lldb/lldb-69/test/lldbutil.py
 def get_module_names(thread):
@@ -238,7 +284,7 @@ def dis_capstone(debugger, command, result, dict):
     # length
     disasm_count = options.count.lower() if (options.count is not None) else str(4)
 
-    disasm_count = int(zhc_crypto.BASECONVERTER.convert_by_base(disasm_count[2:], 16, 10)) \
+    disasm_count = int(convert_by_base(disasm_count[2:], 16, 10)) \
         if disasm_count.startswith('0x') else int(disasm_count)
 
     # arch
