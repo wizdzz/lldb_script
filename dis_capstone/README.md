@@ -23,3 +23,7 @@ or add command script import ~/.lldb/dis_capstone.py to ~/.lldbinit (create if n
 2. Auto change mode between **CS_MODE_THUMB** and **CS_MODE_ARM**, the mode is determined by the cpsr flag on the original script, when it's different with disassembly position, the original may not work.
 3. Change **disassemble bytes count** to **disassemble line count**.
 4. Add symbols of addresses on disasm line, if can not find any symbol, then show the offset to the corresponding library.
+
+## Screenshot
+![Alt text](https://github.com/wizdzz/lldb_script/blob/master/dis_capstone/show_symbol.png?raw=true)
+![Alt text](https://github.com/wizdzz/lldb_script/blob/master/dis_capstone/full.png?raw=true)
