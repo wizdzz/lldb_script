@@ -139,7 +139,7 @@ def _is_cpsr_thumb(frame):
     except BaseException as e:
         s = traceback.format_exc()
         print(s)
-        return 1
+        return 0
 
 def create_command_arguments(command):
     return shlex.split(command)
@@ -237,6 +237,7 @@ def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full):
     md.detail = True
     disasm = md.disasm(bytes, start_addr)
     for insn in disasm:
+        op_str = insn.op_str
         line = "    0x%x:  %-12s %-8s %-24s" % (
             insn.address, bytes_to_hex(insn.bytes), insn.mnemonic, insn.op_str) if full else (
                 "    0x%x:  %-8s %-24s" % (insn.address, insn.mnemonic, insn.op_str))
@@ -252,6 +253,7 @@ def exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full):
                 # print("sbAddr: " + str(sbAddr))
 
                 if sbAddr.GetModule().IsValid():
+                    line = line.replace('#', '')  # remove the '#' mask
                     sbAddrStr = str(sbAddr)
                     # if sbAddrStr.count('symbol stub for:') > 0:
                     #     sbAddrStr = sbAddrStr[sbAddrStr.find('symbol stub for:') + len('symbol stub for:') + 1:]
@@ -289,6 +291,7 @@ def get_disassemble(debugger, start_addr, disasm_arch, disasm_mode, full):
         #     lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
 
     else:
+        print('start_addr: 0x%x, %x' % start_addr)
         print("[ERROR] ReadMemory(0x%x): %s" % (start_addr, error))
 
     return lineCount, linesList
@@ -346,7 +349,7 @@ def dis_capstone(debugger, command, result, dict):
     if options.arch == "arm64":
         disasm_arch = CS_ARCH_ARM64
 
-    if disasm_arch == CS_ARCH_ARM64 or CS_ARCH_ARM:
+    if disasm_arch == CS_ARCH_ARM:
         # auto select mode by cpsr
         if _is_cpsr_thumb(frame):
             disasm_mode = CS_MODE_THUMB
@@ -373,4 +376,5 @@ def dis_capstone(debugger, command, result, dict):
         print(image_lookup_addr(start_addr))
 
     ##
+    # print('arch: %d, mode: %d.' % (disasm_arch, disasm_mode))
     real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode, options.full)
