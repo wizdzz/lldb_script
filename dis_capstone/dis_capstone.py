@@ -19,75 +19,111 @@ import shlex
 import optparse
 import ctypes
 import traceback
+import capstone
 from capstone import *
 from capstone.arm import *
 
+
+g_core_definitions = [
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "arm"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv4"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv4t"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv5"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv5e"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv5t"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv6"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv6m"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7f"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7s"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7k"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7m"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "armv7em"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM, "xscale"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumb"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv4t"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv5"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv5e"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv6"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv6m"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7f"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7s"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7k"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7m"],
+    [capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB, "thumbv7em"],
+    [capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM, "arm64"],
+    [capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM, "armv8"],
+    [capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM, "aarch64"],
+
+    # mips32, mips32r2, mips32r3, mips32r5, mips32r6
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mips"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr2"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr3"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr5"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr6"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsel"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr2el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr3el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr5el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32, "mipsr6el"],
+
+    # mips64, mips64r2, mips64r3, mips64r5, mips64r6
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r2"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r3"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r5"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r6"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r2el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r3el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r5el"],
+    [capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64, "mips64r6el"],
+
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "powerpc"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc601"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc602"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc603"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc603e"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc603ev"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc604"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc604e"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc620"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc750"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc7400"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc7450"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc970"],
+
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "powerpc64le"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "powerpc64"],
+    [capstone.CS_ARCH_PPC, capstone.CS_MODE_64, "ppc970-64"],
+
+    [capstone.CS_ARCH_SYSZ, None, "s390x"],  # i don't know it's mode
+
+    [capstone.CS_ARCH_SPARC, capstone.CS_MODE_V9, "sparc"],
+    [capstone.CS_ARCH_SPARC, capstone.CS_MODE_V9, "sparcv9"],
+
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_32, "i386"],
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_32, "i486"],
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_32, "i486sx"],
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_32, "i686"],
+
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_64, "x86_64"],
+    [capstone.CS_ARCH_X86, capstone.CS_MODE_64, "x86_64h"],
+]
+
+
+def find_arch_mode(triple_with_arch):
+    arch_str = triple_with_arch[0:triple_with_arch.find('-')]
+
+    for ele in g_core_definitions:
+        if ele[2] == arch_str:
+            return ele[0], ele[1]
+
+    return None, None
+
+
 bytes_to_hex = lambda bytes: " ".join([ "%.2X"%int(bytes[i]) for i in range(len(bytes)) ])
-
-class BASECONVERTER(object):
-    decimal_digits = "0123456789"
-    alpha_table = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-    def __init__(self, digits):
-        self.digits = digits
-
-    def from_decimal(self, i):
-        return self.convert(i, self.decimal_digits, self.digits)
-
-    def to_decimal(self, s):
-        return int(self.convert(s, self.digits, self.decimal_digits))
-
-    def convert(number, fromdigits, todigits):
-        try:
-            # Based on http://code.activestate.com/recipes/111286/
-            if str(number)[0] == '-':
-                number = str(number)[1:]
-                neg = 1
-            else:
-                neg = 0
-
-            # make an integer out of the number
-            x = 0
-            for digit in str(number):
-                x = x * len(fromdigits) + fromdigits.index(digit)
-
-            # create the result in base 'len(todigits)'
-            if x == 0:
-                res = todigits[0]
-            else:
-                res = ""
-                while x > 0:
-                    digit = x % len(todigits)
-                    res = todigits[digit] + res
-                    x = int(x / len(todigits))
-                if neg:
-                    res = '-' + res
-            return res
-        except:
-            s = traceback.format_exc()
-            logging.error(s)
-            return None
-
-    def base_to_digits(base):
-        fromdigits = BASECONVERTER.decimal_digits
-        if base <= 10:
-            fromdigits = fromdigits[0:base]
-        else:
-            fromdigits = fromdigits + BASECONVERTER.alpha_table[:base - 10]
-
-        return fromdigits
-
-    def convert_by_base(number, from_base, to_base):
-        number = str(number).upper()
-
-        fromdigits = BASECONVERTER.base_to_digits(from_base)
-        todigits = BASECONVERTER.base_to_digits(to_base)
-
-        return BASECONVERTER.convert(number, fromdigits, todigits)
-
-    convert = staticmethod(convert)
-    convert_by_base = staticmethod(convert_by_base)
-    base_to_digits = staticmethod(base_to_digits)
 
 def __lldb_init_module (debugger, dict):
     debugger.HandleCommand('command script add -f dis_capstone.dis_capstone discs')
@@ -103,6 +139,7 @@ def _is_cpsr_thumb(frame):
     except BaseException as e:
         s = traceback.format_exc()
         print(s)
+        return 1
 
 def create_command_arguments(command):
     return shlex.split(command)
@@ -171,7 +208,7 @@ def back_stacktrace(target, thread):
             file_addr = addrs[i].GetFileAddress()
             start_addr = frame.GetSymbol().GetStartAddress().GetFileAddress()
             symbol_offset = file_addr - start_addr
-            if (symbol_offset < 0):
+            if symbol_offset < 0:
                 symbol_offset = 0
             print("  frame #{num}: {addr:#016x} {mod}`{symbol} + {offset}".format(
                 num=i, addr=load_addr, mod=mods[i], symbol=symbols[i], offset=symbol_offset))
@@ -294,43 +331,46 @@ def dis_capstone(debugger, command, result, dict):
     pc_addr = frame.GetPCAddress().GetLoadAddress(target)
 
     # start_addr
-    try:
-        start_addr = int(options.start_addr, 0)
-    except:
-        start_addr = pc_addr
+    start_addr = options.start_addr if (options.start_addr is not None) else str(pc_addr)
+    if start_addr.startswith('#'):
+        start_addr = start_addr[1:]
+    start_addr = int(start_addr, 0)
+
     # length
     disasm_count = options.count.lower() if (options.count is not None) else str(4)
+    disasm_count = int(disasm_count, 0)
 
-    disasm_count = int(BASECONVERTER.convert_by_base(disasm_count[2:], 16, 10)) \
-        if disasm_count.startswith('0x') else int(disasm_count)
+    # arch, mode
+    disasm_arch, disasm_mode = find_arch_mode(target.GetPlatform().GetTriple())
 
-    # arch
-    disasm_arch = CS_ARCH_ARM
-    if (options.arch == "arm64"):
+    if options.arch == "arm64":
         disasm_arch = CS_ARCH_ARM64
 
-    # auto select mode by cpsr
-    if _is_cpsr_thumb(frame):
-        disasm_mode = CS_MODE_THUMB
-    else:
-        disasm_mode = CS_MODE_ARM
+    if disasm_arch == CS_ARCH_ARM64 or CS_ARCH_ARM:
+        # auto select mode by cpsr
+        if _is_cpsr_thumb(frame):
+            disasm_mode = CS_MODE_THUMB
+        else:
+            disasm_mode = CS_MODE_ARM
 
-
-    # force apply --mode options
-    if (options.mode == "arm"):
-        disasm_mode = CS_MODE_ARM
-    elif (options.mode == "thumb"):
-        disasm_mode = CS_MODE_THUMB
+        # force apply --mode options
+        if options.mode == "arm":
+            disasm_mode = CS_MODE_ARM
+        elif options.mode == "thumb":
+            disasm_mode = CS_MODE_THUMB
 
     # force arm64 use arm mode
-    if (options.arch == "arm64"):
+    if options.arch == "arm64":
         disasm_mode = CS_MODE_ARM
 
+    if disasm_arch is None or disasm_mode is None:
+        print('can not get disasm_arch or disasm_mode.')
+        return
+
     # show frame and addr info
-    if (options.full):
+    if options.full:
         print("  %s, %s" % (thread, frame))
         print(image_lookup_addr(start_addr))
 
     ##
     real_disassemble(debugger, start_addr, disasm_count, disasm_arch, disasm_mode, options.full)
-
