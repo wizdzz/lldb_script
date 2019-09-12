@@ -286,9 +286,12 @@ def get_disassemble(debugger, start_addr, disasm_arch, disasm_mode, full):
         lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
 
         # maybe disasm_mode error, change to thumb or arm, maybe occur when cpsr flag is different with disassembly position
-        # if lineCount == 0 and disasm_arch != CS_ARCH_ARM64:
-        #     disasm_mode = CS_MODE_ARM if (disasm_mode == CS_MODE_THUMB) else CS_MODE_THUMB
-        #     lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
+        if lineCount == 0 and disasm_arch == CS_ARCH_ARM:
+            disasm_mode = CS_MODE_ARM if (disasm_mode == CS_MODE_THUMB) else CS_MODE_THUMB
+            lineCount, linesList = exec_disassemble(disasm_arch, disasm_mode, bytes, start_addr, target, full)
+            if lineCount == 0:  # can not disasm even switched mode, give up
+                print('can not disasm on address: 0x%x, with arch: %d, mode: %d.' % (start_addr, disasm_arch, disasm_mode))
+                return lineCount, linesList
 
     else:
         print('start_addr: 0x%x, %x' % start_addr)
